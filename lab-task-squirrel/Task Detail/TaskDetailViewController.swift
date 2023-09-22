@@ -165,7 +165,53 @@ extension TaskDetailViewController {
 
 extension TaskDetailViewController: PHPickerViewControllerDelegate {
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        // Dismiss the picker
+        picker.dismiss(animated: true)
+
+        // Get the selected image asset (we can grab the 1st item in the array since we only allowed a selection limit of 1)
+        let result = results.first
+
+        // Get image location
+        // PHAsset contains metadata about an image or video (ex. location, size, etc.)
+        guard let assetId = result?.assetIdentifier,
+              let location = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil).firstObject?.location else {
+            return
+        }
+
+        print("📍 Image location coordinate: \(location.coordinate)")
         
+        // Make sure we have a non-nil item provider
+        guard let provider = result?.itemProvider,
+              // Make sure the provider can load a UIImage
+              provider.canLoadObject(ofClass: UIImage.self) else { return }
+
+        // Load a UIImage from the provider
+        provider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
+
+            // Handle any errors
+            if let error = error {
+              DispatchQueue.main.async { [weak self] in self?.showAlert(for:error) }
+            
+            }
+
+            // Make sure we can cast the returned object to a UIImage
+            guard let image = object as? UIImage else { return }
+
+            print("🌉 We have an image!")
+
+            // UI updates should be done on main thread, hence the use of `DispatchQueue.main.async`
+            DispatchQueue.main.async { [weak self] in
+
+                // Set the picked image and location on the task
+                self?.task.set(image, with: location)
+
+                // Update the UI since we've updated the task
+                self?.updateUI()
+
+                // Update the map view since we now have an image an location
+                self?.updateMapView()
+            }
+        }
     }
     
 
